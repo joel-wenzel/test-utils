@@ -1,9 +1,10 @@
 import type { Nuxt, NuxtConfig } from '@nuxt/schema'
-import type { InlineConfig as VitestConfig } from 'vitest'
+import type { InlineConfig as VitestConfig } from 'vitest/node'
 import { defineConfig } from 'vite'
 import { setupDotenv } from 'c12'
 import type { DotenvOptions } from 'c12'
 import type { InlineConfig } from 'vite'
+import type { DateString } from 'compatx'
 import { defu } from 'defu'
 import { createResolver } from '@nuxt/kit'
 
@@ -32,6 +33,10 @@ async function startNuxtAndGetViteConfig(
       cwd: rootDir,
       fileName: '.env.test',
     }),
+    defaults: {
+      // suppress compatibility date warning for runtime environment tests
+      compatibilityDate: '2024-04-03' as DateString,
+    },
     overrides: defu(
       {
         appId: 'nuxt-app',
@@ -71,6 +76,7 @@ async function startNuxtAndGetViteConfig(
 
 const excludedPlugins = [
   'nuxt:import-protection',
+  'nuxt:import-conditions',
   'vite-plugin-checker',
 ]
 
@@ -219,40 +225,49 @@ export function defineVitestConfig(config: InlineConfig & { test?: VitestConfig 
   })
 }
 
-declare module 'vitest' {
-  interface EnvironmentOptions {
-    nuxt?: {
-      rootDir?: string
-      /**
-       * The starting URL for your Nuxt window environment
-       * @default {http://localhost:3000}
-       */
-      url?: string
-      /**
-       * You can define how environment options are read when loading the Nuxt configuration.
-       */
-      dotenv?: Partial<DotenvOptions>
-      /**
-       * Configuration that will override the values in your `nuxt.config` file.
-       */
-      overrides?: NuxtConfig
-      /**
-       * The id of the root div to which the app should be mounted. You should also set `app.rootId` to the same value.
-       * @default {nuxt-test}
-       */
-      rootId?: string
-      /**
-       * The name of the DOM environment to use.
-       *
-       * It also needs to be installed as a dev dependency in your project.
-       * @default {happy-dom}
-       */
-      domEnvironment?: 'happy-dom' | 'jsdom'
+interface NuxtEnvironmentOptions {
+  rootDir?: string
+  /**
+   * The starting URL for your Nuxt window environment
+   * @default {http://localhost:3000}
+   */
+  url?: string
+  /**
+   * You can define how environment options are read when loading the Nuxt configuration.
+   */
+  dotenv?: Partial<DotenvOptions>
+  /**
+   * Configuration that will override the values in your `nuxt.config` file.
+   */
+  overrides?: NuxtConfig
+  /**
+   * The id of the root div to which the app should be mounted. You should also set `app.rootId` to the same value.
+   * @default {nuxt-test}
+   */
+  rootId?: string
+  /**
+   * The name of the DOM environment to use.
+   *
+   * It also needs to be installed as a dev dependency in your project.
+   * @default {happy-dom}
+   */
+  domEnvironment?: 'happy-dom' | 'jsdom'
 
-      mock?: {
-        intersectionObserver?: boolean
-        indexedDb?: boolean
-      }
-    }
+  mock?: {
+    intersectionObserver?: boolean
+    indexedDb?: boolean
+  }
+}
+
+declare module 'vitest/node' {
+  interface EnvironmentOptions {
+    nuxt?: NuxtEnvironmentOptions
+  }
+}
+
+declare module 'vitest' {
+  // @ts-expect-error Duplicate augmentation for backwards-compatibility
+  interface EnvironmentOptions {
+    nuxt?: NuxtEnvironmentOptions
   }
 }
